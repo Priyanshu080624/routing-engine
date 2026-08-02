@@ -1,0 +1,253 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ─── Reset + Design Tokens ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg:          #0d1117;
+    --bg-surface:  #161b22;
+    --bg-card:     rgba(22, 27, 34, 0.85);
+    --glass:       rgba(255,255,255,0.04);
+    --glass-border:rgba(255,255,255,0.08);
+    --accent:      #00d2ff;
+    --accent-dim:  #00d2ff33;
+    --danger:      #ff4d4d;
+    --danger-dim:  #ff4d4d22;
+    --warn:        #ffaa00;
+    --warn-dim:    #ffaa0022;
+    --text:        #e6edf3;
+    --text-muted:  #8b949e;
+    --radius:      10px;
+    --header-h:    62px;
+}
+
+html, body, #root { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; }
+
+/* ─── App Shell ─────────────────────────────────────────────── */
+.app-shell { display: flex; flex-direction: column; height: 100vh; }
+
+/* ─── Stats Bar (header) ─────────────────────────────────────── */
+.stats-bar {
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 20px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--glass-border);
+    backdrop-filter: blur(12px);
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.brand-icon {
+    font-size: 22px;
+    color: var(--accent);
+    filter: drop-shadow(0 0 6px var(--accent));
+}
+.brand-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+}
+.brand-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 400;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.stats-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.stat-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    flex-shrink: 0;
+    transition: background 0.3s, border-color 0.3s;
+}
+.stat-chip.chip-danger {
+    background: var(--danger-dim);
+    border-color: var(--danger);
+    animation: pulse 1.8s infinite;
+}
+.stat-chip.chip-highlight {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    max-width: 380px;
+    overflow: hidden;
+}
+.chip-icon { font-size: 18px; }
+.chip-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; }
+.chip-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.conn-badge {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    border: 1px solid;
+    flex-shrink: 0;
+    transition: all 0.3s;
+}
+.conn-live { color: #3fb950; border-color: #3fb95055; background: #3fb95015; }
+.conn-off  { color: var(--text-muted); border-color: var(--glass-border); background: transparent; }
+.conn-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+.conn-live .conn-dot { animation: blink 1.2s infinite; }
+
+/* ─── App Body ──────────────────────────────────────────────── */
+.app-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* ─── Map ───────────────────────────────────────────────────── */
+.map-wrapper {
+    flex: 1;
+    position: relative;
+}
+.map-loading {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+/* ─── Override Leaflet popup style ─────────────────────────── */
+.leaflet-popup-content-wrapper {
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+    color: var(--text) !important;
+}
+.leaflet-popup-tip { background: var(--bg-surface) !important; }
+
+/* ─── Alerts Panel (sidebar) ────────────────────────────────── */
+.alerts-panel {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--glass-border);
+    overflow: hidden;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--glass-border);
+    flex-shrink: 0;
+}
+.alert-count {
+    background: var(--danger);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 1px 8px;
+    min-width: 22px;
+    text-align: center;
+}
+
+.alerts-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.alerts-list::-webkit-scrollbar { width: 4px; }
+.alerts-list::-webkit-scrollbar-track { background: transparent; }
+.alerts-list::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 4px; }
+
+.no-alerts {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+.no-alerts span { font-size: 32px; }
+
+.alert-card {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+    animation: slideIn 0.3s ease-out;
+    cursor: default;
+}
+.alert-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.alert-icon { font-size: 15px; }
+.alert-vehicle { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; font-family: 'JetBrains Mono', monospace; }
+.alert-time { font-size: 10px; color: var(--text-muted); }
+.alert-detail { font-size: 12px; }
+
+/* ─── Animations ────────────────────────────────────────────── */
+@keyframes pulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 10px var(--danger); }
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+}
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
