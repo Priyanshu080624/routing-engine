@@ -31,11 +31,34 @@ function d2(a, b) {
 
 /**
  * Chain all OSM segments of a named road into one continuous
- * coordinate array. Handles segments that are stored in any order
- * and any direction (forward/backward).
+ * coordinate array. Whenever two segment endpoints are more than
+ * INTERP_DEG apart, insert LINEAR INTERPOLATION POINTS so the
+ * truck never jumps more than ~25 m between consecutive coords.
  *
- * Returns [[lon, lat], ...] — full road geometry on actual roads.
+ * Returns [[lon, lat], ...]
  */
+
+const INTERP_DEG   = 0.00025;  // ~25 m — max allowed gap between consecutive coords
+const INTERP_DEG_SQ = INTERP_DEG * INTERP_DEG;
+
+/** Insert smooth intermediate points between two [lon,lat] coords if gap > INTERP_DEG */
+function fillGap(from, to, result) {
+    const dist = Math.sqrt(d2(from, to));
+    if (dist <= INTERP_DEG) {
+        result.push(to);
+        return;
+    }
+    // Number of interpolation steps needed
+    const n = Math.ceil(dist / INTERP_DEG);
+    for (let i = 1; i <= n; i++) {
+        const t = i / n;
+        result.push([
+            from[0] + (to[0] - from[0]) * t,
+            from[1] + (to[1] - from[1]) * t
+        ]);
+    }
+}
+
 function chainRoadSegments(name) {
     const segs = roadsByName[name];
     if (!segs || segs.length === 0) {
@@ -48,8 +71,8 @@ function chainRoadSegments(name) {
     const result  = [...sorted[0].coords];
     const pending = sorted.slice(1);
 
-    // Greedily attach the nearest unattached segment
-    const GAP_THRESHOLD = 0.002 * 0.002; // ~200m² tolerance in degrees²
+    // Greedily attach nearest segment, interpolating the gap
+    const GAP_THRESHOLD = 0.002 * 0.002; // ~200m² search radius
 
     while (pending.length > 0) {
         const lastPt = result[result.length - 1];
@@ -68,9 +91,13 @@ function chainRoadSegments(name) {
 
         if (bestIdx === -1) break; // remaining segments are disconnected
 
-        const seg = pending.splice(bestIdx, 1)[0];
-        const nc  = bestRev ? [...seg.coords].reverse() : seg.coords;
-        result.push(...nc);
+        const seg  = pending.splice(bestIdx, 1)[0];
+        const nc   = bestRev ? [...seg.coords].reverse() : seg.coords;
+        const join = nc[0];
+
+        // ── Fill the gap with interpolated points if needed ──
+        fillGap(lastPt, join, result);
+        result.push(...nc.slice(1)); // nc[0] already added via fillGap
     }
 
     return result; // [[lon, lat], ...]
@@ -84,7 +111,7 @@ function chainRoadSegments(name) {
  *
  * Returns: { coords: [[lon,lat],...], roadAt: [roadName,...] }
  */
-const MAX_GAP_DEG = 0.0015; // ~150 m tolerance between roads
+const MAX_GAP_DEG = 0.005; // ~500 m tolerance — allows long roads with some gaps to chain
 const MAX_GAP_SQ  = MAX_GAP_DEG * MAX_GAP_DEG;
 
 function buildRoute(roadNames) {
@@ -114,45 +141,71 @@ function buildRoute(roadNames) {
         }
 
         const oriented = dToEnd < dToStart ? [...roadCoords].reverse() : roadCoords;
-        coords.push(...oriented);
+
+        // Fill gap between roads with interpolated points
+        fillGap(lastPt, oriented[0], coords);
+        coords.push(...oriented.slice(1));
         roadAt.push(...oriented.map(() => name));
     }
 
     return { coords, roadAt };
 }
 
-// ─── Vehicle route definitions ────────────────────────────────
-// Routes verified to be geographically adjacent (endpoints <150m apart)
-// All trucks ping-pong back and forth — no teleporting.
+// ════════════════════════════════════════════════════════════════
+//  ✏️  CONFIGURE TRUCK ROUTES HERE
+//
+//  roadNames  — one or more road names from city_roads.json
+//               Use long roads for big cross-city routes.
+//               The truck ping-pongs between the two endpoints.
+//
+//  fromLabel  — display name for the starting end of the route
+//  toLabel    — display name for the far end of the route
+//
+//  Top longest roads available (coords = number of GPS points):
+//    2483 coords → "Outer Ring Road"     (full outer city ring)
+//     943 coords → "Bannerghatta Road"   (south Bengaluru corridor)
+//     865 coords → "Mysore Road"         (west Bengaluru corridor)
+//     628 coords → "Hosur Road"          (south-east corridor)
+//     625 coords → "Whitefield Road"     (east Bengaluru)
+//     550 coords → "Bellary Road"        (north corridor)
+//     504 coords → "Dr. Vishnuvardhan Road"
+//     484 coords → "Yelahanka Road"      (far north)
+//     461 coords → "Varthur Road"        (east)
+//     565 coords → "Sarjapura Road"      (south-east)
+//     976 coords → "Magadi Road"         (west)
+//     970 coords → "Kanakapura Road"     (south)
+// ════════════════════════════════════════════════════════════════
 const VEHICLE_DEFS = [
     {
         vehicleId:    'VIN-001',
         name:         'Alpha Truck',
-        // Richmond Road: 17 segments crossing central Bengaluru east-west
-        // starts near Victoria Road (lon 77.614) and ends near Kasturba (lon 77.597)
-        roadNames:    ['Richmond Road'],
-        fromLabel:    'Richmond Circle',
-        toLabel:      'Kasturba Road Junction',
+        // Hosur Road — major south-east Bengaluru corridor
+        // 628 GPS coords running from Electronic City up toward the city centre
+        roadNames:    ['Hosur Road'],
+        fromLabel:    'Electronic City (SE)',
+        toLabel:      'Silk Board Junction',
         fuelLevel:    85,
         tirePressure: { FL: 32, FR: 32, RL: 31, RR: 32 }
     },
     {
         vehicleId:    'VIN-002',
         name:         'Bravo Truck',
-        // Brigade Road → Museum Road: adjacent parallel roads in city centre
-        roadNames:    ['Brigade Road', 'Museum Road'],
-        fromLabel:    'Brigade Road',
-        toLabel:      'Museum Road',
+        // Bannerghatta Road — major south Bengaluru artery
+        // Runs from city centre (Jayanagar) down to Bannerghatta National Park
+        roadNames:    ['Bannerghatta Road'],
+        fromLabel:    'Jayanagar (City)',
+        toLabel:      'Bannerghatta (South)',
         fuelLevel:    62,
         tirePressure: { FL: 33, FR: 33, RL: 32, RR: 33 }
     },
     {
         vehicleId:    'VIN-003',
         name:         'Charlie Truck',
-        // Victoria Road: 6 connected segments near Domlur/Richmond area
-        roadNames:    ['Victoria Road'],
-        fromLabel:    'Victoria Road (West)',
-        toLabel:      'Victoria Road (East)',
+        // Mysore Road — major west Bengaluru corridor
+        // Connects city centre to Mysore direction through Kengeri
+        roadNames:    ['Mysore Road'],
+        fromLabel:    'Mysore Road (City end)',
+        toLabel:      'Kengeri (West end)',
         fuelLevel:    22,
         tirePressure: { FL: 30, FR: 31, RL: 30, RR: 31 }
     }
@@ -232,8 +285,8 @@ async function tick() {
             ? Math.floor(Math.random() * 10) + 81
             : Math.floor(Math.random() * 21) + 55;
 
-        // Fuel drain with auto-refuel
-        v.fuelLevel = parseFloat((v.fuelLevel - 0.3).toFixed(1));
+        // Fuel drain scaled for 800ms tick (0.12 per tick ≈ same rate as before)
+        v.fuelLevel = parseFloat((v.fuelLevel - 0.12).toFixed(2));
         if (v.fuelLevel <= 10) {
             v.fuelLevel = 95;
             console.log(`⛽ ${v.vehicleId} refuelled → 95%`);
@@ -259,9 +312,10 @@ async function tick() {
             console.error(`[${v.vehicleId}] ❌ ${e.message}`);
         }
 
-        // ── Ping-pong: flip direction at ends, NO teleporting ─
-        const steps = 2;
-        v.coordIdx += steps * v.direction;
+        // ── Ping-pong: 1 step per tick, NO teleporting ────────
+        // 1 step = ~25m (INTERP_DEG spacing), every 800ms
+        // = visibly smooth motion across the city
+        v.coordIdx += v.direction;
 
         if (v.coordIdx >= v.coords.length - 1) {
             v.coordIdx  = v.coords.length - 1;
@@ -280,6 +334,6 @@ console.log('   VIN-002  Brigade Road ↔ Museum Road (city centre)');
 console.log('   VIN-003  Victoria Road (West ↔ East, near Domlur)\n');
 
 // Post paths first (with retry), then start ticking
-setTimeout(postVehiclePaths, 1500);   // wait 1.5s for server to be ready
-setInterval(tick, 2000);
+setTimeout(postVehiclePaths, 1500);
+setInterval(tick, 800);  // 800ms tick = smooth movement at ~25m per step
 tick();
